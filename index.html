@@ -938,8 +938,8 @@ body.hide-mon-rank .rc-mon-badge{display:none;}
 <div class="input-grid" id="inputGrid"></div>
 <div class="input-actions">
 <span class="hint" id="lastSavedHint">Chưa có dữ liệu nào được lưu.</span>
-<span class="hint" id="autoSnapBadge" style="color:var(--good);">🕒 Tự động lưu lịch sử hôm nay mỗi 1 phút sau khi bạn ngừng nhập/dán.</span>
-<button class="btn primary" id="btnSnapshot">📌 Lưu snapshot hôm nay (để so sánh)</button>
+<span class="hint" id="autoSnapBadge" style="color:var(--good);">☁️ Tự động lưu nháp lên Google Sheets sau 30 giây không thao tác. Snapshot chỉ tạo khi bấm nút.</span>
+<button class="btn primary" id="btnSnapshot">☁️ Lưu snapshot lên Google Sheets</button>
 <button class="btn" id="btnExportBackup">⬇ Xuất file backup (.json)</button>
 <button class="btn" id="btnImportBackup">⬆ Nhập file backup (.json)</button>
 <button class="btn danger" id="btnClearAllInputs" style="margin-left:auto;">🗑 Xóa tất cả</button>
@@ -1091,7 +1091,7 @@ body.hide-mon-rank .rc-mon-badge{display:none;}
 <div id="historyContent"></div>
 </div>
 </main>
-<footer class="foot">Cụm 933 · Công cụ nội bộ · Dữ liệu chỉ lưu trên thiết bị này</footer>
+<footer class="foot">Cụm 933 · Công cụ nội bộ · Dữ liệu tự lưu trên máy và đồng bộ Google Sheets</footer>
 <div id="exportRoot" style="position:fixed;left:-99999px;top:0;"></div>
 <script>
 /* ============================= LƯU DỮ LIỆU CỤC BỘ =============================
@@ -1136,17 +1136,89 @@ function confirmPasteOverwrite(ta){
   return confirm('Ô này đang có '+n+' dòng dữ liệu. Dán đè lên dữ liệu cũ (dữ liệu cũ sẽ mất)?');
 }
 
-let autoSnapshotTimer=null;
-function queueAutoSnapshot(){
-  clearTimeout(autoSnapshotTimer);
-  autoSnapshotTimer = setTimeout(async ()=>{
-    const key = await saveHistorySnapshot();
-    if(key){
-      const badge = document.getElementById('autoSnapBadge');
-      if(badge){ badge.textContent = '🕒 Tự động lưu lịch sử lúc '+new Date().toLocaleTimeString('vi-VN'); }
-      if(document.getElementById('view-history')?.classList.contains('active')) renderHistoryView();
-    }
-  }, 60000); // 1 phút sau khi ngừng nhập/dán, tự cập nhật snapshot lịch sử của hôm nay
+let cloudDraftTimer=null;
+let cloudDraftSaving=false;
+const CLOUD_DRAFT_KEY = 'cum933-main-draft';
+const LOCAL_CHANGED_AT_KEY = 'cum933-local-changed-at';
+
+function markLocalChanged(){
+  try{ localStorage.setItem(LOCAL_CHANGED_AT_KEY, String(Date.now())); }catch(e){}
+}
+function setCloudSyncStatus(state, detail=''){
+  const el = document.getElementById('saveStatusBadge');
+  if(!el) return;
+  if(state==='waiting'){
+    el.className='save-status saving';
+    el.textContent='⏳ Đã lưu trên máy · chờ đồng bộ Google Sheets';
+  } else if(state==='syncing'){
+    el.className='save-status saving';
+    el.textContent='☁️ Đang đồng bộ Google Sheets...';
+  } else if(state==='ok'){
+    el.className='save-status ok';
+    el.textContent='✓ Đã đồng bộ Google Sheets lúc '+new Date().toLocaleTimeString('vi-VN');
+  } else if(state==='error'){
+    el.className='save-status error';
+    el.textContent='⚠ Mất kết nối · dữ liệu vẫn đã lưu trên máy'+(detail?(' · '+detail):'');
+  }
+}
+function buildCloudDraft(){
+  return {
+    inputs: JSON.parse(JSON.stringify(inputs)),
+    appSettings: JSON.parse(JSON.stringify(appSettings)),
+    storeExtra: JSON.parse(JSON.stringify(storeExtra)),
+    theme: document.documentElement.getAttribute('data-theme') || 'light',
+    updatedAt: Date.now()
+  };
+}
+async function saveCloudDraftNow(){
+  if(cloudDraftSaving) return false;
+  cloudDraftSaving=true;
+  setCloudSyncStatus('syncing');
+  try{
+    const draft=buildCloudDraft();
+    await historyApiPost({action:'saveDraft', draftKey:CLOUD_DRAFT_KEY, userName:'Cụm 933', draft});
+    try{ localStorage.setItem(LOCAL_CHANGED_AT_KEY, String(draft.updatedAt)); }catch(e){}
+    setCloudSyncStatus('ok');
+    return true;
+  }catch(e){
+    console.error('Không đồng bộ được bản nháp Google Sheets:',e);
+    setCloudSyncStatus('error');
+    return false;
+  }finally{
+    cloudDraftSaving=false;
+  }
+}
+function queueCloudDraft(){
+  markLocalChanged();
+  setCloudSyncStatus('waiting');
+  clearTimeout(cloudDraftTimer);
+  cloudDraftTimer=setTimeout(saveCloudDraftNow, 30000); // 30 giây sau thao tác cuối
+}
+async function loadCloudDraft(){
+  try{
+    const data=await historyApiGet({action:'getDraft', draftKey:CLOUD_DRAFT_KEY, t:Date.now()});
+    const remote=data.draft;
+    if(!remote || !remote.draft) return false;
+    const cloud=remote.draft;
+    const localChanged=Number(localStorage.getItem(LOCAL_CHANGED_AT_KEY)||0);
+    const cloudChanged=Number(cloud.updatedAt || new Date(remote.updatedAt||0).getTime() || 0);
+    // Chỉ nạp dữ liệu đám mây khi nó mới hơn dữ liệu cục bộ.
+    if(cloudChanged < localChanged) return false;
+    if(cloud.inputs) inputs=Object.assign(inputs, cloud.inputs);
+    if(cloud.appSettings) appSettings=Object.assign(appSettings, cloud.appSettings);
+    if(cloud.storeExtra) storeExtra=Object.assign(storeExtra, cloud.storeExtra);
+    if(cloud.theme){ applyTheme(cloud.theme); await saveTheme(cloud.theme); }
+    await safeStorageSet(STORAGE_KEY, JSON.stringify(inputs), false);
+    await safeStorageSet(SETTINGS_KEY, JSON.stringify(appSettings), false);
+    await safeStorageSet(STORE_EXTRA_KEY, JSON.stringify(storeExtra), false);
+    try{ localStorage.setItem(LOCAL_CHANGED_AT_KEY,String(cloudChanged)); }catch(e){}
+    setCloudSyncStatus('ok');
+    return true;
+  }catch(e){
+    console.warn('Không tải được bản nháp Google Sheets, tiếp tục dùng dữ liệu trên máy:',e);
+    setCloudSyncStatus('error');
+    return false;
+  }
 }
 
 const THEME_KEY = 'ui-theme-933';
@@ -1203,6 +1275,7 @@ function queueSaveSettings(){
   settingsSaveTimer = setTimeout(async ()=>{
     await safeStorageSet(SETTINGS_KEY, JSON.stringify(appSettings), false);
   }, 400);
+  queueCloudDraft();
 }
 
 /* ============================= STORAGE HELPERS ============================= */
@@ -1227,37 +1300,76 @@ function queueSave(){
   saveTimer = setTimeout(async ()=>{
     await safeStorageSet(STORAGE_KEY, JSON.stringify(inputs), false);
   }, 500);
+  queueCloudDraft();
 }
 async function forceSaveNow(){
   clearTimeout(saveTimer);
   return await safeStorageSet(STORAGE_KEY, JSON.stringify(inputs), false);
 }
+const HISTORY_API_URL = 'https://script.google.com/macros/s/AKfycbwPAfuobF45vaJ5SGTMJTeLJa4OrCdHJ2a06NDqVcWqtzU0GPCofIqXrYLBQqPB-XKjeA/exec';
+
+function formatSnapshotLabel(dateValue){
+  const d = dateValue ? new Date(dateValue) : new Date();
+  return d.toLocaleString('vi-VN', {
+    timeZone:'Asia/Ho_Chi_Minh', hour12:false,
+    day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+}
+async function historyApiGet(params={}){
+  const url = new URL(HISTORY_API_URL);
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+  const res = await fetch(url.toString(), {method:'GET', cache:'no-store', redirect:'follow'});
+  if(!res.ok) throw new Error('API Google Sheets trả lỗi HTTP '+res.status);
+  const data = await res.json();
+  if(!data.success) throw new Error(data.message || 'API Google Sheets báo lỗi');
+  return data;
+}
+async function historyApiPost(payload){
+  // text/plain giúp gọi từ file HTML mà không phát sinh yêu cầu CORS preflight.
+  const res = await fetch(HISTORY_API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload),
+    redirect:'follow'
+  });
+  if(!res.ok) throw new Error('API Google Sheets trả lỗi HTTP '+res.status);
+  const data = await res.json();
+  if(!data.success) throw new Error(data.message || 'API Google Sheets báo lỗi');
+  return data;
+}
 async function saveHistorySnapshot(){
-  const today = new Date();
-  const dateKey = today.toISOString().slice(0,10);
   const snap = buildSnapshot();
-  snap.rawInputs = JSON.parse(JSON.stringify(inputs)); // giữ luôn dữ liệu thô đã dán để xem lại lịch sử đầy đủ
-  const ok1 = await safeStorageSet('history:'+dateKey, JSON.stringify(snap), false);
-  if(!ok1) return null;
-  let idx=[];
-  const v = await storageGet('history-index');
-  if(v){ try{ idx = JSON.parse(v); }catch(e){} }
-  if(!idx.includes(dateKey)){
-    idx.push(dateKey); idx.sort();
-    const ok2 = await safeStorageSet('history-index',JSON.stringify(idx),false);
-    if(!ok2) return null;
+  snap.rawInputs = JSON.parse(JSON.stringify(inputs));
+  snap.appSettings = JSON.parse(JSON.stringify(appSettings));
+  snap.storeExtra = JSON.parse(JSON.stringify(storeExtra));
+  const label = formatSnapshotLabel(new Date());
+  try{
+    const data = await historyApiPost({action:'save', label, userName:'Cụm 933', snapshot:snap});
+    return {id:data.id, label:data.label || label, savedAt:data.savedAt};
+  }catch(e){
+    console.error('Không lưu được snapshot lên Google Sheets:', e);
+    alert('Không lưu được lên Google Sheets. Kiểm tra mạng, quyền triển khai Apps Script và URL API.\n\n'+e.message);
+    return null;
   }
-  return dateKey;
 }
 async function loadHistoryIndex(){
-  const v = await storageGet('history-index');
-  if(v){ try{ return JSON.parse(v); }catch(e){} }
-  return [];
+  try{
+    const data = await historyApiGet({action:'list', t:Date.now()});
+    return Array.isArray(data.snapshots) ? data.snapshots : [];
+  }catch(e){
+    console.error('Không tải được lịch sử Google Sheets:', e);
+    return [];
+  }
 }
-async function loadSnapshot(dateKey){
-  const v = await storageGet('history:'+dateKey);
-  if(v){ try{ return JSON.parse(v); }catch(e){} }
-  return null;
+async function loadSnapshot(snapshotId){
+  try{
+    const data = await historyApiGet({action:'get', id:snapshotId, t:Date.now()});
+    return data.snapshot && data.snapshot.snapshot ? data.snapshot.snapshot : null;
+  }catch(e){
+    console.error('Không tải được snapshot:', snapshotId, e);
+    return null;
+  }
 }
 
 /* ============================= PARSING HELPERS ============================= */
@@ -1767,7 +1879,7 @@ function onEodInputChange(e){
   const val = e.target.value;
   inputs[key] = { raw: val, ts: val.trim() ? Date.now() : null };
   queueSave();
-  queueAutoSnapshot();
+  queueCloudDraft();
   updateHeaderStatus();
   renderInputGrid();
   updateEodCardIndicator(key);
@@ -1912,7 +2024,7 @@ function onInputChange(e){
   if(key==='tz_detail') invalidateDetailCache('tz');
   if(key==='tgdd_detail') invalidateDetailCache('tgdd');
   queueSave();
-  queueAutoSnapshot();
+  queueCloudDraft();
   renderInputGrid();
   updateHeaderStatus();
   if(EOD_INPUT_MAP[key]) syncEodInputTextarea(key);
@@ -2278,7 +2390,7 @@ function wireStoreTableEvents(storeKey){
     const commitRt = ()=>{
       inputs[inputKey] = { raw: rtInput.value, ts: rtInput.value.trim() ? Date.now() : null };
       queueSave();
-      queueAutoSnapshot();
+      queueCloudDraft();
       renderInputGrid();
       updateHeaderStatus();
     };
@@ -3367,69 +3479,73 @@ function buildSnapshot(){
 
 let historyDates = [];
 let selectedDates = [];
+function historyEntryById(id){ return historyDates.find(x=>String(x.id)===String(id)) || null; }
 async function renderHistoryView(){
-  historyDates = await loadHistoryIndex();
   const el = document.getElementById('historyContent');
+  el.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div><p>Đang tải lịch sử từ Google Sheets...</p></div>`;
+  historyDates = await loadHistoryIndex();
+  selectedDates = selectedDates.filter(id=>historyEntryById(id));
   if(!historyDates.length){
-    el.innerHTML = `<div class="empty-state"><div class="es-icon">🗓️</div><p>Chưa có snapshot nào. Vào tab "Nhập liệu" và bấm "Lưu snapshot hôm nay" sau khi đã dán đủ dữ liệu.</p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="es-icon">🗓️</div><p>Chưa có snapshot trên Google Sheets hoặc chưa kết nối được API. Vào tab "Nhập liệu" và bấm "Lưu snapshot" sau khi đã dán dữ liệu.</p></div>`;
     return;
   }
   el.innerHTML = `
     <div class="card">
-      <p class="hint" style="margin-bottom:10px;">Chọn 2 ngày để so sánh (nhấp để chọn/bỏ chọn):</p>
+      <p class="hint" style="margin-bottom:10px;">Chọn 2 mốc để so sánh (nhấp để chọn/bỏ chọn). Dữ liệu được đồng bộ qua Google Sheets:</p>
       <div class="hist-list" id="histList"></div>
     </div>
     <div id="compareArea"></div>
   `;
   const list = document.getElementById('histList');
-  historyDates.slice().reverse().forEach(d=>{
+  historyDates.forEach(entry=>{
+    const id = String(entry.id);
+    const label = entry.label || formatSnapshotLabel(entry.savedAt);
     const row = document.createElement('div');
     row.className='hist-row';
-    row.dataset.date=d;
-    row.innerHTML = `<span class="hd">${d}</span><span class="hs">nhấp để chọn</span><button type="button" class="btn-restore" data-restore="${d}" style="margin-left:auto;font-size:11px;padding:4px 10px;">↺ Khôi phục dữ liệu ngày này</button>`;
-    row.querySelector('.hd').parentElement; // no-op, giữ layout
+    row.dataset.date=id;
+    row.innerHTML = `<span class="hd">${label}</span><span class="hs">${entry.userName ? 'Người lưu: '+entry.userName : 'nhấp để chọn'}</span><button type="button" class="btn-restore" data-restore="${id}" style="margin-left:auto;font-size:11px;padding:4px 10px;">↺ Khôi phục mốc này</button>`;
     row.style.cssText+='display:flex;align-items:center;gap:10px;';
-    row.addEventListener('click',(e)=>{ if(e.target.closest('[data-restore]')) return; toggleDateSelect(d); });
+    row.classList.toggle('selected', selectedDates.includes(id));
+    row.addEventListener('click',(e)=>{ if(e.target.closest('[data-restore]')) return; toggleDateSelect(id); });
     row.querySelector('[data-restore]').addEventListener('click', async (e)=>{
       e.stopPropagation();
-      if(!confirm('Khôi phục dữ liệu đã dán của ngày '+d+'? Dữ liệu nhập hiện tại sẽ bị GHI ĐÈ.')) return;
-      const snap = await loadSnapshot(d);
-      if(!snap || !snap.rawInputs){ alert('Snapshot ngày này không có dữ liệu thô để khôi phục (được lưu trước khi có tính năng này).'); return; }
+      if(!confirm('Khôi phục dữ liệu đã dán của mốc '+label+'? Dữ liệu nhập hiện tại sẽ bị GHI ĐÈ trên máy này.')) return;
+      const snap = await loadSnapshot(id);
+      if(!snap || !snap.rawInputs){ alert('Snapshot này không có dữ liệu thô để khôi phục.'); return; }
       inputs = Object.assign(inputs, snap.rawInputs);
+      if(snap.appSettings) appSettings = Object.assign(appSettings, snap.appSettings);
+      if(snap.storeExtra) storeExtra = Object.assign(storeExtra, snap.storeExtra);
       const ok = await forceSaveNow();
-      renderInputGrid(); updateHeaderStatus(); renderAll();
-      alert(ok ? 'Đã khôi phục và lưu dữ liệu ngày '+d+'.' : 'Đã khôi phục nhưng LƯU THẤT BẠI, hãy thử lại.');
+      renderInputGrid(); renderSettingsPanel(); updateHeaderStatus(); renderAll();
+      alert(ok ? 'Đã khôi phục mốc '+label+' về máy này.' : 'Đã khôi phục nhưng lưu trên máy thất bại.');
       activateTab('input');
     });
     list.appendChild(row);
   });
 }
-function toggleDateSelect(d){
-  if(selectedDates.includes(d)){
-    selectedDates = selectedDates.filter(x=>x!==d);
-  } else {
-    selectedDates.push(d);
-    if(selectedDates.length>2) selectedDates.shift();
-  }
-  document.querySelectorAll('.hist-row').forEach(r=>{
-    r.classList.toggle('selected', selectedDates.includes(r.dataset.date));
-  });
+function toggleDateSelect(id){
+  id=String(id);
+  if(selectedDates.includes(id)) selectedDates = selectedDates.filter(x=>x!==id);
+  else { selectedDates.push(id); if(selectedDates.length>2) selectedDates.shift(); }
+  document.querySelectorAll('.hist-row').forEach(r=>r.classList.toggle('selected', selectedDates.includes(r.dataset.date)));
   if(selectedDates.length===2) renderCompare(selectedDates[0], selectedDates[1]);
   else document.getElementById('compareArea').innerHTML='';
 }
-async function renderCompare(d1,d2){
-  const [older,newer] = [d1,d2].sort();
-  const s1 = await loadSnapshot(older);
-  const s2 = await loadSnapshot(newer);
+async function renderCompare(id1,id2){
+  const e1=historyEntryById(id1), e2=historyEntryById(id2);
+  const pair=[e1,e2].sort((a,b)=>new Date(a?.savedAt||0)-new Date(b?.savedAt||0));
+  const olderEntry=pair[0], newerEntry=pair[1];
+  const older=olderEntry?.label || formatSnapshotLabel(olderEntry?.savedAt);
+  const newer=newerEntry?.label || formatSnapshotLabel(newerEntry?.savedAt);
+  const [s1,s2] = await Promise.all([loadSnapshot(olderEntry.id), loadSnapshot(newerEntry.id)]);
   const area = document.getElementById('compareArea');
-  if(!s1||!s2){ area.innerHTML='<p class="hint">Không tải được snapshot.</p>'; return; }
+  if(!s1||!s2){ area.innerHTML='<p class="hint">Không tải được một trong hai snapshot từ Google Sheets.</p>'; return; }
   function storeCompareBlock(name, a, b){
     if(!a||!b) return `<div class="card"><h3 style="font-size:13px;margin-bottom:10px;">${name}</h3><p class="hint">Thiếu dữ liệu ở 1 trong 2 mốc.</p></div>`;
     let rows='';
     ['DTLK','SLLK'].forEach(type=>{
       if(!a[type]||!b[type]) return;
-      const bItems = b[type].items;
-      bItems.forEach(bi=>{
+      b[type].items.forEach(bi=>{
         const ai = a[type].items.find(x=>x.name===bi.name);
         const delta = ai && ai.pct!=null && bi.pct!=null ? (bi.pct-ai.pct) : null;
         const dclass = delta==null?'flat':delta>0.05?'up':delta<-0.05?'down':'flat';
@@ -3519,11 +3635,13 @@ document.getElementById('rankToggleBadges').addEventListener('click', ()=>{
 document.getElementById('btnSnapshot').addEventListener('click', async ()=>{
   const btn = document.getElementById('btnSnapshot');
   const orig = btn.textContent;
-  btn.textContent = 'Đang lưu...';
+  btn.textContent = 'Đang đồng bộ và lưu snapshot...';
+  await forceSaveNow();
+  await saveCloudDraftNow();
   const key = await saveHistorySnapshot();
-  btn.textContent = key ? '✓ Đã lưu '+key : 'Lỗi khi lưu';
+  btn.textContent = key ? '✓ Đã lưu '+key.label : 'Lỗi khi lưu';
   setTimeout(()=>btn.textContent=orig, 2000);
-  if(key) await activateTab('store');
+  if(key) await activateTab('history');
 });
 
 /* ============================= BACKUP: XUẤT / NHẬP FILE JSON =============================
@@ -3532,15 +3650,15 @@ document.getElementById('btnSnapshot').addEventListener('click', async ()=>{
 async function collectAllDataForBackup(){
   const idx = await loadHistoryIndex();
   const history = {};
-  for(const d of idx){
-    const snap = await loadSnapshot(d);
-    if(snap) history[d] = snap;
+  for(const entry of idx){
+    const snap = await loadSnapshot(entry.id);
+    if(snap) history[entry.id] = snap;
   }
   return {
     _app: 'thi-dua-933-backup', _version: 1, exportedAt: new Date().toISOString(),
     inputs, appSettings, storeExtra,
     theme: document.documentElement.getAttribute('data-theme') || 'light',
-    historyIndex: idx, history
+    historyIndex: idx, history, historySource:'google-sheets'
   };
 }
 document.getElementById('btnExportBackup').addEventListener('click', async ()=>{
@@ -3585,12 +3703,8 @@ document.getElementById('fileImportBackup').addEventListener('change', async (e)
     if(data.appSettings) ok = (await safeStorageSet(SETTINGS_KEY, JSON.stringify(appSettings), false)) && ok;
     if(data.storeExtra) ok = (await safeStorageSet(STORE_EXTRA_KEY, JSON.stringify(storeExtra), false)) && ok;
     if(data.theme){ applyTheme(data.theme); await saveTheme(data.theme); }
-    if(data.history && data.historyIndex){
-      for(const d of data.historyIndex){
-        if(data.history[d]) await safeStorageSet('history:'+d, JSON.stringify(data.history[d]), false);
-      }
-      await safeStorageSet('history-index', JSON.stringify(data.historyIndex), false);
-    }
+    // Lịch sử dùng chung đang nằm trên Google Sheets. File backup chỉ dùng để lưu trữ ngoại tuyến,
+    // không tự ghi ngược hàng loạt lên cloud khi nhập để tránh tạo dữ liệu trùng.
     renderInputGrid(); renderSettingsPanel(); updateHeaderStatus(); renderAll();
     btn.textContent = ok ? '✓ Đã nhập xong' : '⚠ Nhập xong nhưng lưu lỗi';
   }catch(err){ console.error(err); btn.textContent = 'Lỗi khi nhập file'; }
@@ -3655,6 +3769,8 @@ async function init(){
   wireSettingsPanel();
   await loadInputs();
   await loadStoreExtra();
+  await loadCloudDraft();
+  renderSettingsPanel();
   renderInputGrid();
   updateHeaderStatus();
   wireEodMeta();
@@ -3671,6 +3787,7 @@ window.addEventListener('beforeunload', (e)=>{
     return e.returnValue;
   }
 });
+window.addEventListener('online', ()=>saveCloudDraftNow());
 init();
 </script>
 </body>
