@@ -3217,6 +3217,19 @@ async function exportLiveContainer(containerId, tabTitle, storeLabel, filenameSl
         <div class="eod-export-section"><span>🏆 Chi tiết thi đua theo siêu thị</span><span class="target">Mục tiêu: 100%</span></div>
         ${source.querySelector('.eod-dept-grid')?.outerHTML || ''}
       </div>`;
+    // Loại bỏ cột "Kết quả" (thanh màu nhỏ) khỏi ảnh xuất ra, chỉ áp dụng cho bản xuất ảnh
+    wrapper.querySelectorAll('table.rank-table').forEach(table=>{
+      const headRow = table.querySelector('thead tr');
+      if(!headRow) return;
+      const ths = Array.from(headRow.children);
+      const idx = ths.findIndex(th=>th.textContent.trim()==='Kết quả');
+      if(idx>-1){
+        headRow.removeChild(ths[idx]);
+        table.querySelectorAll('tbody tr').forEach(tr=>{
+          if(tr.children[idx]) tr.removeChild(tr.children[idx]);
+        });
+      }
+    });
     root.appendChild(wrapper);
     await new Promise(r=>setTimeout(r,120));
     try{
