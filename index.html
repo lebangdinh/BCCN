@@ -861,9 +861,6 @@ body.hide-mon-rank .rc-mon-badge{display:none;}
 .eod-export-body .eod-progress{min-width:100px;}
 .eod-export-body .eod-progress-lbl{font-size:7.5px;}
 .eod-export-body .eod-done{font-size:9px;}
-.eod-export-footer{text-align:center;padding:28px 20px 4px;color:#08758D;}
-.eod-export-footer .main{font-family:'Space Grotesk',sans-serif;font-weight:900;letter-spacing:.55em;font-size:15px;}
-.eod-export-footer .sub{font-size:9px;letter-spacing:.14em;margin-top:10px;color:#7894A3;text-transform:uppercase;font-weight:800;}
 
 </style>
 </head>
@@ -3219,8 +3216,7 @@ async function exportLiveContainer(containerId, tabTitle, storeLabel, filenameSl
         <div class="eod-export-top">${source.querySelector('.eod-top-grid')?.outerHTML || ''}</div>
         <div class="eod-export-section"><span>🏆 Chi tiết thi đua theo siêu thị</span><span class="target">Mục tiêu: 100%</span></div>
         ${source.querySelector('.eod-dept-grid')?.outerHTML || ''}
-      </div>
-      <div class="eod-export-footer"><div class="main">VTB TOP 1 2026</div><div class="sub">Cửa hàng: 351 Nguyễn Hữu Thọ · Đà Nẵng</div></div>`;
+      </div>`;
     root.appendChild(wrapper);
     await new Promise(r=>setTimeout(r,120));
     try{
