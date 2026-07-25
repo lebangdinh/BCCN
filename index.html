@@ -816,6 +816,55 @@ body.hide-mon-rank .rc-mon-badge{display:none;}
   font-family:var(--font-mono);font-size:14px;font-weight:700;padding:10px 12px;
 }
 .settings-field input:focus{outline:none;border-color:var(--tz);}
+
+
+/* ===== BẢN XUẤT RIÊNG: BÁO CÁO CUỐI NGÀY — gần bố cục dashboard mẫu ===== */
+.eod-export-sheet{width:1200px;background:#EEF5F8;color:#14213A;font-family:'Inter',sans-serif;padding-bottom:28px;}
+.eod-export-hero{background:linear-gradient(135deg,#087E96 0%,#08758D 55%,#075D76 100%);color:#fff;padding:24px 28px 22px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;}
+.eod-export-brand{display:flex;align-items:center;gap:18px;min-width:0;}
+.eod-export-logo{width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:900;font-size:17px;flex-shrink:0;}
+.eod-export-title{font-family:'Space Grotesk',sans-serif;font-size:27px;font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:-.6px;line-height:1.08;}
+.eod-export-sub{font-size:11px;font-weight:800;letter-spacing:.09em;margin-top:9px;color:#C9F3F7;text-transform:uppercase;}
+.eod-export-right{display:flex;align-items:stretch;gap:14px;}
+.eod-export-period{padding:8px 20px 8px 4px;border-right:1px solid rgba(255,255,255,.25);text-align:right;min-width:190px;}
+.eod-export-period .lbl{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#C9F3F7;font-weight:900;}
+.eod-export-period .val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:900;color:#FFD33D;margin-top:7px;}
+.eod-export-kpi{min-width:92px;border-radius:14px;padding:10px 12px;text-align:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13);}
+.eod-export-kpi.good{background:rgba(20,184,154,.26);}
+.eod-export-kpi .lbl{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#D7F4F6;font-weight:900;}
+.eod-export-kpi .val{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:900;margin-top:6px;}
+.eod-export-kpi.good .val{color:#21D6A6;}
+.eod-export-body{padding:16px 0 0;}
+.eod-export-body .eod-top-grid{grid-template-columns:380px 1fr;gap:14px;padding:0 0 14px;}
+.eod-export-body .card{border:1px solid #D8E3E9;border-radius:14px;box-shadow:0 3px 10px rgba(37,68,82,.09);padding:16px;background:#fff;}
+.eod-export-body .eod-revenue-card{border-radius:0 14px 14px 0;border-left:0;}
+.eod-export-body .eod-top-grid>.card:last-child{border-radius:14px 0 0 14px;border-right:0;}
+.eod-export-body .ic-title{font-size:14px;font-weight:900;}
+.eod-export-body .eod-big-pct{font-size:29px;}
+.eod-export-body .eod-mono{font-size:16px;}
+.eod-export-body .eod-mini-card .eod-mono{font-size:18px;}
+.eod-export-body .eod-summary-bar{display:none;}
+.eod-export-section{margin:2px 0 12px;background:linear-gradient(90deg,#087E96,#0794A9);color:#fff;padding:11px 22px;border-radius:0 12px 12px 0;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;}
+.eod-export-section .target{font-size:10px;letter-spacing:.04em;background:#30465E;color:#FFD33D;padding:8px 12px;border-radius:8px;}
+.eod-export-body .eod-dept-grid{grid-template-columns:1fr 1fr;gap:16px;padding:0;align-items:start;}
+.eod-export-body .eod-dept-card{padding:0;overflow:hidden;border-radius:14px;}
+.eod-export-body .eod-dept-head{margin:0;padding:15px 18px;background:linear-gradient(90deg,#087E96,#08758D);color:#fff;}
+.eod-export-body .eod-dept-head .ic-title{color:#fff;font-size:14px;}
+.eod-export-body .eod-badge{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#E9FAFC;font-size:9px;}
+.eod-export-body table.rank-table{font-size:10.5px;table-layout:fixed;}
+.eod-export-body table.rank-table th{background:#223047;color:#DCE8EF;border-bottom:0;padding:9px 8px;font-size:8.5px;}
+.eod-export-body table.rank-table td{padding:8px 8px;border-bottom:1px solid #E1E9EE;font-size:9.5px;}
+.eod-export-body .eod-mon-table th:nth-child(1){width:38%;}
+.eod-export-body .eod-mon-table th:nth-child(2){width:9%;}
+.eod-export-body .eod-mon-table th:nth-child(3),.eod-export-body .eod-mon-table th:nth-child(4),.eod-export-body .eod-mon-table th:nth-child(5){width:10%;}
+.eod-export-body .eod-mon-table th:nth-child(6){width:23%;}
+.eod-export-body .eod-progress{min-width:100px;}
+.eod-export-body .eod-progress-lbl{font-size:7.5px;}
+.eod-export-body .eod-done{font-size:9px;}
+.eod-export-footer{text-align:center;padding:28px 20px 4px;color:#08758D;}
+.eod-export-footer .main{font-family:'Space Grotesk',sans-serif;font-weight:900;letter-spacing:.55em;font-size:15px;}
+.eod-export-footer .sub{font-size:9px;letter-spacing:.14em;margin-top:10px;color:#7894A3;text-transform:uppercase;font-weight:800;}
+
 </style>
 </head>
 <body>
@@ -3142,6 +3191,55 @@ function renderScoringView(){
 async function exportLiveContainer(containerId, tabTitle, storeLabel, filenameSlug){
   const source = document.getElementById(containerId);
   if(!source || !source.innerHTML.trim()){ alert('Chưa có dữ liệu để xuất ảnh cho mục này.'); return false; }
+
+  // Báo cáo cuối ngày dùng bố cục xuất riêng, sát dashboard mẫu hơn.
+  if(containerId==='eodContent'){
+    const root = document.getElementById('exportRoot');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'eod-export-sheet';
+    const dateRaw = document.getElementById('eodReportDate')?.value || '';
+    const hourRaw = document.getElementById('eodReportHour')?.value || '22H';
+    const dateText = dateRaw ? dateRaw.split('-').reverse().join('/') : new Date().toLocaleDateString('vi-VN');
+    const totalMon = source.querySelector('.eod-summary-bar .eod-mono')?.textContent?.trim() || '—';
+    const sumVals = source.querySelectorAll('.eod-summary-bar .eod-mono');
+    const achievedMon = sumVals[1]?.textContent?.trim() || '—';
+    wrapper.innerHTML = `
+      <div class="eod-export-hero">
+        <div class="eod-export-brand">
+          <div class="eod-export-logo">933</div>
+          <div><div class="eod-export-title">TOPZONE - THẾ GIỚI DI ĐỘNG 351 NGUYỄN HỮU THỌ</div><div class="eod-export-sub">● Dashboard hiệu suất · 351 Nguyễn Hữu Thọ · Đà Nẵng</div></div>
+        </div>
+        <div class="eod-export-right">
+          <div class="eod-export-period"><div class="lbl">Kỳ báo cáo</div><div class="val">${dateText} &nbsp;-&nbsp; ${hourRaw}</div></div>
+          <div class="eod-export-kpi"><div class="lbl">Tổng môn</div><div class="val">${totalMon}</div></div>
+          <div class="eod-export-kpi good"><div class="lbl">Đã đạt</div><div class="val">${achievedMon}</div></div>
+        </div>
+      </div>
+      <div class="eod-export-body">
+        <div class="eod-export-top">${source.querySelector('.eod-top-grid')?.outerHTML || ''}</div>
+        <div class="eod-export-section"><span>🏆 Chi tiết thi đua theo siêu thị</span><span class="target">Mục tiêu: 100%</span></div>
+        ${source.querySelector('.eod-dept-grid')?.outerHTML || ''}
+      </div>
+      <div class="eod-export-footer"><div class="main">VTB TOP 1 2026</div><div class="sub">Cửa hàng: 351 Nguyễn Hữu Thọ · Đà Nẵng</div></div>`;
+    root.appendChild(wrapper);
+    await new Promise(r=>setTimeout(r,120));
+    try{
+      const canvas = await html2canvas(wrapper,{backgroundColor:'#EEF5F8',scale:2,useCORS:true,windowWidth:1200});
+      const now = new Date();
+      const stamp = now.toISOString().slice(0,10)+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0');
+      const link = document.createElement('a');
+      link.download = `Cum933-${filenameSlug}-${stamp}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      root.removeChild(wrapper);
+      return true;
+    }catch(err){
+      console.error(err); root.removeChild(wrapper);
+      alert('Không xuất được ảnh. Thử lại hoặc chụp màn hình thủ công.');
+      return false;
+    }
+  }
+
   const bgCol = getThemeColor('--bg','#0A0D12');
   const width = Math.max(source.offsetWidth, 600);
   const headerWrapper = document.createElement('div');
