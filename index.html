@@ -3189,66 +3189,6 @@ async function exportLiveContainer(containerId, tabTitle, storeLabel, filenameSl
   const source = document.getElementById(containerId);
   if(!source || !source.innerHTML.trim()){ alert('Chưa có dữ liệu để xuất ảnh cho mục này.'); return false; }
 
-  // Báo cáo cuối ngày dùng bố cục xuất riêng, sát dashboard mẫu hơn.
-  if(containerId==='eodContent'){
-    const root = document.getElementById('exportRoot');
-    const wrapper = document.createElement('div');
-    wrapper.className = 'eod-export-sheet';
-    const dateRaw = document.getElementById('eodReportDate')?.value || '';
-    const hourRaw = document.getElementById('eodReportHour')?.value || '22H';
-    const dateText = dateRaw ? dateRaw.split('-').reverse().join('/') : new Date().toLocaleDateString('vi-VN');
-    const totalMon = source.querySelector('.eod-summary-bar .eod-mono')?.textContent?.trim() || '—';
-    const sumVals = source.querySelectorAll('.eod-summary-bar .eod-mono');
-    const achievedMon = sumVals[1]?.textContent?.trim() || '—';
-    wrapper.innerHTML = `
-      <div class="eod-export-hero">
-        <div class="eod-export-brand">
-          <div class="eod-export-logo">933</div>
-          <div><div class="eod-export-title">TOPZONE - THẾ GIỚI DI ĐỘNG 351 NGUYỄN HỮU THỌ</div><div class="eod-export-sub">● Dashboard hiệu suất · 351 Nguyễn Hữu Thọ · Đà Nẵng</div></div>
-        </div>
-        <div class="eod-export-right">
-          <div class="eod-export-period"><div class="lbl">Kỳ báo cáo</div><div class="val">${dateText} &nbsp;-&nbsp; ${hourRaw}</div></div>
-          <div class="eod-export-kpi"><div class="lbl">Tổng môn</div><div class="val">${totalMon}</div></div>
-          <div class="eod-export-kpi good"><div class="lbl">Đã đạt</div><div class="val">${achievedMon}</div></div>
-        </div>
-      </div>
-      <div class="eod-export-body">
-        <div class="eod-export-top">${source.querySelector('.eod-top-grid')?.outerHTML || ''}</div>
-        <div class="eod-export-section"><span>🏆 Chi tiết thi đua theo siêu thị</span><span class="target">Mục tiêu: 100%</span></div>
-        ${source.querySelector('.eod-dept-grid')?.outerHTML || ''}
-      </div>`;
-    // Loại bỏ cột "Kết quả" (thanh màu nhỏ) khỏi ảnh xuất ra, chỉ áp dụng cho bản xuất ảnh
-    wrapper.querySelectorAll('table.rank-table').forEach(table=>{
-      const headRow = table.querySelector('thead tr');
-      if(!headRow) return;
-      const ths = Array.from(headRow.children);
-      const idx = ths.findIndex(th=>th.textContent.trim()==='Kết quả');
-      if(idx>-1){
-        headRow.removeChild(ths[idx]);
-        table.querySelectorAll('tbody tr').forEach(tr=>{
-          if(tr.children[idx]) tr.removeChild(tr.children[idx]);
-        });
-      }
-    });
-    root.appendChild(wrapper);
-    await new Promise(r=>setTimeout(r,120));
-    try{
-      const canvas = await html2canvas(wrapper,{backgroundColor:'#EEF5F8',scale:2,useCORS:true,windowWidth:1200});
-      const now = new Date();
-      const stamp = now.toISOString().slice(0,10)+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0');
-      const link = document.createElement('a');
-      link.download = `Cum933-${filenameSlug}-${stamp}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      root.removeChild(wrapper);
-      return true;
-    }catch(err){
-      console.error(err); root.removeChild(wrapper);
-      alert('Không xuất được ảnh. Thử lại hoặc chụp màn hình thủ công.');
-      return false;
-    }
-  }
-
   const bgCol = getThemeColor('--bg','#0A0D12');
   const width = Math.max(source.offsetWidth, 600);
   const headerWrapper = document.createElement('div');
