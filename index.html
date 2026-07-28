@@ -1254,6 +1254,17 @@ function getThemeColor(varName, fallback){
   const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   return v || fallback;
 }
+/* Sửa lỗi html2canvas "createPattern...width or height of 0": các thanh tiến trình
+   (bar-fill/mini-bar-fill/tbb-fill) có thể có width=0 khi giá trị = 0, và theme "dashboard"
+   ép chúng dùng nền gradient (!important). html2canvas không vẽ được gradient trên phần tử
+   0x0 nên bị crash. Ta ẩn tạm các thanh 0-kích-thước chỉ trong bản sao dùng để chụp ảnh. */
+function fixZeroSizeBarsForExport(doc){
+  doc.querySelectorAll('.bar-fill, .mini-bar-fill, .tbb-fill').forEach(el=>{
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if(!w || !h) el.style.display = 'none';
+  });
+}
+const HTML2CANVAS_SAFE_OPTS = { useCORS:true, onclone: fixZeroSizeBarsForExport };
 
 /* ============================= APP SETTINGS (Thiết lập gốc) ============================= */
 const SETTINGS_KEY = 'app-settings-933';
@@ -2656,7 +2667,7 @@ async function renderToPng(innerHtml, width, filename){
   root.appendChild(wrapper);
   await new Promise(r=>setTimeout(r,80));
   try{
-    const canvas = await html2canvas(wrapper, {backgroundColor:bgCol, scale:2, useCORS:true});
+    const canvas = await html2canvas(wrapper, Object.assign({backgroundColor:bgCol, scale:2}, HTML2CANVAS_SAFE_OPTS));
     const link = document.createElement('a');
     link.download = filename;
     link.href = canvas.toDataURL('image/png');
@@ -3319,8 +3330,8 @@ async function exportLiveContainer(containerId, tabTitle, storeLabel, filenameSl
   await new Promise(r=>setTimeout(r,50));
   let headerCanvas, bodyCanvas;
   try{
-    headerCanvas = await html2canvas(headerWrapper, {backgroundColor:bgCol, scale:2});
-    bodyCanvas = await html2canvas(source, {backgroundColor:bgCol, scale:2});
+    headerCanvas = await html2canvas(headerWrapper, Object.assign({backgroundColor:bgCol, scale:2}, HTML2CANVAS_SAFE_OPTS));
+    bodyCanvas = await html2canvas(source, Object.assign({backgroundColor:bgCol, scale:2}, HTML2CANVAS_SAFE_OPTS));
   }catch(err){
     console.error(err);
     alert('Không xuất được ảnh. Thử lại hoặc chụp màn hình thủ công.');
