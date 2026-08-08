@@ -1276,7 +1276,9 @@ function defaultDaysInMonth(){
   return new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
 }
 function defaultDaysUsed(){
-  return new Date().getDate();
+  // Dữ liệu lũy kế (LK) từ báo cáo BI chỉ chốt đến hết ngày hôm trước,
+  // nên "Số ngày đã dùng" = ngày hiện tại - 1 (tối thiểu 0, đầu tháng ngày 1 sẽ ra 0).
+  return Math.max(0, new Date().getDate() - 1);
 }
 let appSettings = {
   daysUsed: defaultDaysUsed(),
