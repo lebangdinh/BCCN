@@ -927,6 +927,9 @@ body.hide-mon-rank .rc-mon-badge{display:none;}
 <div class="settings-field">
 <label>Số ngày đã dùng (Time đã sử dụng)</label>
 <input id="setDaysUsed" min="0.5" step="0.5" type="number"/>
+<label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:400;font-size:12px;cursor:pointer;color:var(--text-dim);">
+<input id="setDaysUsedAuto" type="checkbox" style="width:auto;margin:0;"/> 🔄 Tự động theo ngày thực (chỉnh tay sẽ tắt tự động)
+</label>
 </div>
 <div class="settings-field">
 <label>Số ngày trong tháng</label>
@@ -1278,12 +1281,28 @@ function defaultDaysUsed(){
 let appSettings = {
   daysUsed: defaultDaysUsed(),
   daysInMonth: defaultDaysInMonth(),
-  targetPct: 120
+  targetPct: 120,
+  daysUsedAuto: true
 };
 let settingsSaveTimer=null;
 async function loadSettings(){
   const v = await storageGet(SETTINGS_KEY);
   if(v){ try{ appSettings = Object.assign(appSettings, JSON.parse(v)); }catch(e){} }
+  // Nếu đang ở chế độ tự động, luôn đồng bộ lại theo ngày thực mỗi khi tải trang
+  if(appSettings.daysUsedAuto !== false){
+    appSettings.daysUsed = defaultDaysUsed();
+  }
+}
+// Kiểm tra định kỳ để "Số ngày đã dùng" tự tăng theo ngày thực nếu người dùng để trang mở qua nửa đêm
+function autoRefreshDaysUsed(){
+  if(appSettings.daysUsedAuto === false) return;
+  const real = defaultDaysUsed();
+  if(appSettings.daysUsed !== real){
+    appSettings.daysUsed = real;
+    renderSettingsPanel();
+    queueSaveSettings();
+    renderAll();
+  }
 }
 function queueSaveSettings(){
   clearTimeout(settingsSaveTimer);
@@ -2008,9 +2027,11 @@ function renderSettingsPanel(){
   const elUsed = document.getElementById('setDaysUsed');
   const elDim = document.getElementById('setDaysInMonth');
   const elTarget = document.getElementById('setTargetPct');
+  const elAuto = document.getElementById('setDaysUsedAuto');
   elUsed.value = appSettings.daysUsed;
   elDim.value = appSettings.daysInMonth;
   elTarget.value = appSettings.targetPct;
+  if(elAuto) elAuto.checked = appSettings.daysUsedAuto !== false;
   updateSettingsSummary();
 }
 function updateSettingsSummary(){
@@ -2026,11 +2047,30 @@ function wireSettingsPanel(){
     document.getElementById(id).addEventListener('input', e=>{
       const val = parseFloat(e.target.value);
       appSettings[keys[idx]] = isNaN(val) ? 0 : val;
+      // Người dùng gõ tay vào "Số ngày đã dùng" → tự tắt chế độ tự động
+      if(id === 'setDaysUsed' && appSettings.daysUsedAuto !== false){
+        appSettings.daysUsedAuto = false;
+        const elAuto = document.getElementById('setDaysUsedAuto');
+        if(elAuto) elAuto.checked = false;
+      }
       updateSettingsSummary();
       queueSaveSettings();
       renderAll();
     });
   });
+  const elAuto = document.getElementById('setDaysUsedAuto');
+  if(elAuto){
+    elAuto.addEventListener('change', e=>{
+      appSettings.daysUsedAuto = e.target.checked;
+      if(appSettings.daysUsedAuto){
+        appSettings.daysUsed = defaultDaysUsed();
+        document.getElementById('setDaysUsed').value = appSettings.daysUsed;
+      }
+      updateSettingsSummary();
+      queueSaveSettings();
+      renderAll();
+    });
+  }
 }
 function onInputChange(e){
   const key = e.target.dataset.key;
@@ -3785,6 +3825,11 @@ async function init(){
   await loadInputs();
   await loadStoreExtra();
   await loadCloudDraft();
+  // Bản nháp trên Google Sheets có thể mang theo daysUsed cũ từ lần đồng bộ trước
+  // → nếu đang ở chế độ tự động, luôn ưu tiên tính lại theo ngày thực tế hiện tại.
+  if(appSettings.daysUsedAuto !== false){
+    appSettings.daysUsed = defaultDaysUsed();
+  }
   renderSettingsPanel();
   renderInputGrid();
   updateHeaderStatus();
@@ -3803,6 +3848,9 @@ window.addEventListener('beforeunload', (e)=>{
   }
 });
 window.addEventListener('online', ()=>saveCloudDraftNow());
+// Tự động cập nhật "Số ngày đã dùng" nếu để trang mở qua ngày mới, hoặc khi quay lại tab
+setInterval(autoRefreshDaysUsed, 60000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) autoRefreshDaysUsed(); });
 init();
 </script>
 </body>
